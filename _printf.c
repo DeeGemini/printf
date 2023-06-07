@@ -1,81 +1,86 @@
-#include “main.h”
-
-void print_buffer(char buffer[], int *buff_ind);
+#include "main.h"
+#include <stdarg.h>
+#include <unistd.h>
 
 /**
- * _printf - Printf function
- * @format: format.
- * Return: Printed chars.
+ * _printf - Produces output according to a format.
+ * @format: The format string.
+ *
+ * Return: The number of characters printed
  */
 int _printf(const char *format, ...)
 {
+	va_list args;
 	int printed_chars = 0;
-	int buff_ind = 0;
-	char buffer[BUFF_SIZE];
-	va_list list;
 
 	if (format == NULL)
-	return (-1);
+		return (-1);
 
-	va_start(list, format);
-
-	for (int i = 0; format[i] != '\0'; i++)
-	{
-	if (format[i] != '%')
-	{
-		buffer[buff_ind++] = format[i];
-		if (buff_ind == BUFF_SIZE - 1)
-		{
-		print_buffer(buffer, &buff_ind);
-		printed_chars += buff_ind;
-		}
-	}
-	else
-	{
-		print_buffer(buffer, &buff_ind);
-		i++;	/* Skip the '%' */
-
-		switch (format[i])
-		{
-		case 'd':
-			printed_chars += printf("%d", va_arg(list, int));
-			break;
-		case 'f':
-			printed_chars += printf("%f", va_arg(list, double));
-			break;
-		case 'c':
-			printed_chars += printf("%c", va_arg(list, int));
-			break;
-		case 's':
-			printed_chars += printf("%s", va_arg(list, char*));
-			break;
-		default:
-			putchar('%');
-			putchar(format[i]);
-			printed_chars += 2;
-		}
-	}
-	}
-
-	print_buffer(buffer, &buff_ind);
-	va_end(list);
+	va_start(args, format);
+	printed_chars = handle_print(format, &args);
+	va_end(args);
 
 	return (printed_chars);
 }
 
 /**
- * print_buffer - Prints the contents of the buffer if it exists
- * @buffer: Array of chars
- * @buff_ind: Index at which to add next char, represents the length.
+ * handle_print - Handles the format string and prints the output.
+ * @format: The format string.
+ * @args: The variable argument list.
+ *
+ * Return: The number of characters printed.
  */
-void print_buffer(char buffer[], int *buff_ind)
+int handle_print(const char *format, va_list *args)
 {
-	if (*buff_ind > 0)
+	int i = 0;
+	int printed_chars = 0;
+	char buffer[BUFF_SIZE] = {'\0'};
+	int flags = 0;
+	int width = 0;
+	int precision = -1;
+	int size = 0;
+
+	while (format && format[i])
 	{
-	buffer[*buff_ind] = '\0';
-	printf("%s", buffer);
+		if (format[i] == '%')
+		{
+			i++;
+			flags = get_flags(format, &i);
+			width = get_width(format, &i, *args);
+			precision = get_precision(format, &i, *args);
+			size = get_size(format, &i);
+			if (format[i] == '\0')
+				return (-1);
+			if (format[i] == '%')
+				printed_chars += print_percent(*args, buffer, flags, width, precision, size);
+			else if (format[i] == 'c' || format[i] == 's')
+				printed_chars += handle_write_char(va_arg(*args, int), buffer, flags, width, precision, size);
+			else if (format[i] == 'd' || format[i] == 'i')
+				printed_chars += print_int(*args, buffer, flags, width, precision, size);
+			else if (format[i] == 'b')
+				printed_chars += print_binary(*args, buffer, flags, width, precision, size);
+			else if (format[i] == 'u')
+				printed_chars += print_unsigned(*args, buffer, flags, width, precision, size);
+			else if (format[i] == 'o')
+				printed_chars += print_octal(*args, buffer, flags, width, precision, size);
+			else if (format[i] == 'x' || format[i] == 'X')
+				printed_chars += print_hexadecimal(*args, buffer, flags, width, precision, size);
+			else if (format[i] == 'S')
+				printed_chars += print_non_printable(*args, buffer, flags, width, precision, size);
+			else if (format[i] == 'p')
+				printed_chars += print_pointer(*args, buffer, flags, width, precision, size);
+			else if (format[i] == 'R')
+				printed_chars += print_rot13string(*args, buffer, flags, width, precision, size);
+			else
+				printed_chars += write_num(i - 1, (char *)format, flags, width, precision, 0, ' ', format[i]);
+			i++;
+		}
+		else
+		{
+			printed_chars += write_num(i, (char *)format, flags, width, precision, 0, ' ', format[i]);
+			i++;
+		}
 	}
-
-	*buff_ind = 0;
+	write(1, buffer, printed_chars);
+	return (printed_chars);
 }
-
