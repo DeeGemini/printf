@@ -332,5 +332,3 @@ int handle_width(int ind, char buffer[],
 			break;
 	}
 }
-
-
